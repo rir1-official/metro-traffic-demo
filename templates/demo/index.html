@@ -1,0 +1,727 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>智慧地铁客流预警平台</title>
+    <style>
+        :root {
+            --bg: #07131f;
+            --panel: rgba(8, 21, 37, 0.9);
+            --panel-2: rgba(10, 28, 49, 0.86);
+            --line: rgba(97, 173, 255, 0.24);
+            --text: #ecf4ff;
+            --muted: #9db2d3;
+            --cyan: #5fd8ff;
+            --mint: #7ef2cb;
+            --green: #43d284;
+            --yellow: #f3d25a;
+            --orange: #ff9a50;
+            --red: #ff6666;
+            --shadow: 0 24px 60px rgba(0, 0, 0, 0.32);
+        }
+
+        * {
+            box-sizing: border-box;
+        }
+
+        body {
+            margin: 0;
+            min-height: 100vh;
+            color: var(--text);
+            font-family: "Segoe UI", "Microsoft YaHei", sans-serif;
+            background:
+                radial-gradient(circle at 18% 15%, rgba(43, 138, 255, 0.18), transparent 28%),
+                radial-gradient(circle at 82% 20%, rgba(20, 224, 194, 0.14), transparent 24%),
+                linear-gradient(160deg, #04101a 0%, #09192c 46%, #07111d 100%);
+        }
+
+        .shell {
+            width: min(1440px, calc(100% - 28px));
+            margin: 14px auto;
+            padding: 18px;
+            border: 1px solid var(--line);
+            border-radius: 26px;
+            background: rgba(4, 13, 24, 0.72);
+            box-shadow: var(--shadow);
+        }
+
+        .topbar {
+            display: flex;
+            justify-content: space-between;
+            gap: 16px;
+            align-items: flex-start;
+            padding: 8px 4px 18px;
+        }
+
+        .title h1 {
+            margin: 0;
+            font-size: 34px;
+            letter-spacing: 1px;
+        }
+
+        .title p {
+            margin: 8px 0 0;
+            color: var(--muted);
+            font-size: 15px;
+        }
+
+        .meta {
+            display: flex;
+            gap: 10px;
+            flex-wrap: wrap;
+            justify-content: flex-end;
+        }
+
+        .meta-chip {
+            min-width: 145px;
+            padding: 10px 14px;
+            border: 1px solid var(--line);
+            border-radius: 16px;
+            background: var(--panel);
+        }
+
+        .chip-label {
+            display: block;
+            color: var(--muted);
+            font-size: 12px;
+            margin-bottom: 6px;
+        }
+
+        .chip-value {
+            font-size: 18px;
+            font-weight: 700;
+        }
+
+        .hero-grid {
+            display: grid;
+            grid-template-columns: repeat(4, minmax(0, 1fr));
+            gap: 14px;
+            margin-bottom: 14px;
+        }
+
+        .metric-card,
+        .panel {
+            border: 1px solid var(--line);
+            border-radius: 20px;
+            background: var(--panel);
+            overflow: hidden;
+        }
+
+        .metric-card {
+            padding: 18px;
+            background:
+                linear-gradient(135deg, rgba(8, 31, 56, 0.98), rgba(8, 21, 37, 0.92)),
+                var(--panel);
+        }
+
+        .metric-label {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .metric-value {
+            margin-top: 12px;
+            font-size: 34px;
+            font-weight: 800;
+        }
+
+        .metric-foot {
+            margin-top: 8px;
+            font-size: 13px;
+            color: var(--cyan);
+        }
+
+        .content-grid {
+            display: grid;
+            grid-template-columns: 1.25fr 1fr 1fr;
+            gap: 14px;
+        }
+
+        .panel-head {
+            display: flex;
+            justify-content: space-between;
+            align-items: center;
+            padding: 16px 18px 10px;
+        }
+
+        .panel-title {
+            margin: 0;
+            font-size: 18px;
+        }
+
+        .panel-subtitle {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .panel-body {
+            padding: 0 18px 18px;
+        }
+
+        .station-map {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 12px;
+        }
+
+        .zone {
+            position: relative;
+            min-height: 112px;
+            padding: 14px;
+            border-radius: 18px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--panel-2);
+        }
+
+        .zone::after {
+            content: "";
+            position: absolute;
+            inset: auto 12px 12px auto;
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            background: currentColor;
+            box-shadow: 0 0 18px currentColor;
+        }
+
+        .zone.green { color: var(--green); }
+        .zone.yellow { color: var(--yellow); }
+        .zone.orange { color: var(--orange); }
+        .zone.red { color: var(--red); }
+
+        .zone-name {
+            font-size: 17px;
+            font-weight: 700;
+        }
+
+        .zone-count {
+            margin-top: 16px;
+            font-size: 30px;
+            font-weight: 800;
+            color: var(--text);
+        }
+
+        .zone-risk {
+            margin-top: 8px;
+            font-size: 13px;
+            color: var(--muted);
+        }
+
+        .chart-box {
+            height: 300px;
+            padding: 10px 4px 0;
+        }
+
+        .chart-svg {
+            width: 100%;
+            height: 100%;
+            display: block;
+        }
+
+        .axis-label {
+            fill: #8ea5c8;
+            font-size: 11px;
+        }
+
+        .line-history {
+            fill: none;
+            stroke: var(--cyan);
+            stroke-width: 3;
+        }
+
+        .line-predict {
+            fill: none;
+            stroke: var(--mint);
+            stroke-width: 3;
+            stroke-dasharray: 8 8;
+        }
+
+        .chart-dot {
+            stroke: none;
+        }
+
+        .legend {
+            display: flex;
+            gap: 18px;
+            color: var(--muted);
+            font-size: 13px;
+            padding-bottom: 6px;
+        }
+
+        .legend span::before {
+            content: "";
+            display: inline-block;
+            width: 12px;
+            height: 12px;
+            border-radius: 999px;
+            margin-right: 8px;
+            vertical-align: -1px;
+        }
+
+        .legend .history::before {
+            background: var(--cyan);
+        }
+
+        .legend .predict::before {
+            background: var(--mint);
+        }
+
+        .alerts {
+            display: grid;
+            gap: 12px;
+        }
+
+        .alert-item {
+            padding: 14px;
+            border-radius: 16px;
+            border: 1px solid rgba(255, 255, 255, 0.08);
+            background: var(--panel-2);
+        }
+
+        .alert-head {
+            display: flex;
+            justify-content: space-between;
+            gap: 10px;
+            align-items: center;
+        }
+
+        .alert-time {
+            color: var(--muted);
+            font-size: 12px;
+        }
+
+        .badge {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            padding: 6px 12px;
+            border-radius: 999px;
+            font-size: 12px;
+            font-weight: 700;
+        }
+
+        .badge.green { color: var(--green); background: rgba(67, 210, 132, 0.16); }
+        .badge.yellow { color: var(--yellow); background: rgba(243, 210, 90, 0.16); }
+        .badge.orange { color: var(--orange); background: rgba(255, 154, 80, 0.16); }
+        .badge.red { color: var(--red); background: rgba(255, 102, 102, 0.16); }
+
+        .alert-title {
+            margin: 10px 0 6px;
+            font-size: 16px;
+            font-weight: 700;
+        }
+
+        .alert-desc {
+            color: var(--muted);
+            font-size: 13px;
+            line-height: 1.65;
+        }
+
+        .footer-grid {
+            margin-top: 14px;
+            display: grid;
+            grid-template-columns: 1.3fr 1fr;
+            gap: 14px;
+        }
+
+        .status-box {
+            display: flex;
+            justify-content: space-between;
+            gap: 20px;
+            align-items: center;
+        }
+
+        .status-main {
+            font-size: 16px;
+            line-height: 1.75;
+            color: var(--text);
+        }
+
+        .status-main strong {
+            color: var(--cyan);
+        }
+
+        .controls {
+            display: flex;
+            flex-wrap: wrap;
+            gap: 12px;
+            align-items: center;
+        }
+
+        button {
+            border: 0;
+            padding: 12px 18px;
+            border-radius: 999px;
+            cursor: pointer;
+            color: #03111f;
+            font-size: 14px;
+            font-weight: 800;
+            background: linear-gradient(135deg, #65d6ff, #8df4d0);
+        }
+
+        .ws-status {
+            color: var(--muted);
+            font-size: 13px;
+        }
+
+        .mini-table {
+            width: 100%;
+            border-collapse: collapse;
+        }
+
+        .mini-table th,
+        .mini-table td {
+            text-align: left;
+            padding: 10px 0;
+            border-bottom: 1px solid rgba(255, 255, 255, 0.08);
+            font-size: 13px;
+        }
+
+        .mini-table th {
+            color: var(--muted);
+            font-weight: 600;
+        }
+
+        .mini-table td {
+            color: var(--text);
+        }
+
+        @media (max-width: 1180px) {
+            .hero-grid,
+            .content-grid,
+            .footer-grid {
+                grid-template-columns: 1fr 1fr;
+            }
+        }
+
+        @media (max-width: 860px) {
+            .topbar,
+            .status-box {
+                flex-direction: column;
+                align-items: stretch;
+            }
+
+            .hero-grid,
+            .content-grid,
+            .footer-grid,
+            .station-map {
+                grid-template-columns: 1fr;
+            }
+
+            .meta {
+                justify-content: flex-start;
+            }
+        }
+    </style>
+</head>
+<body>
+    <div class="shell">
+        <header class="topbar">
+            <div class="title">
+                <h1>智慧地铁客流预警平台</h1>
+                <p>融合实时监测、短时预测、风险预警与可视化展示的课程演示大屏</p>
+            </div>
+            <div class="meta">
+                <div class="meta-chip">
+                    <span class="chip-label">站点</span>
+                    <span class="chip-value" id="stationName"></span>
+                </div>
+                <div class="meta-chip">
+                    <span class="chip-label">线路</span>
+                    <span class="chip-value" id="lineName"></span>
+                </div>
+                <div class="meta-chip">
+                    <span class="chip-label">数据更新时间</span>
+                    <span class="chip-value" id="updatedAt"></span>
+                </div>
+            </div>
+        </header>
+
+        <section class="hero-grid">
+            <article class="metric-card">
+                <div class="metric-label">当前重点区域</div>
+                <div class="metric-value" id="focusArea"></div>
+                <div class="metric-foot">实时区域状态同步中</div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-label">当前区域人数</div>
+                <div class="metric-value" id="currentCount"></div>
+                <div class="metric-foot">单位：人</div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-label">30分钟预测人数</div>
+                <div class="metric-value" id="predictedCount"></div>
+                <div class="metric-foot">基于短时趋势模拟结果</div>
+            </article>
+            <article class="metric-card">
+                <div class="metric-label">高风险区域数 / 今日累计客流</div>
+                <div class="metric-value"><span id="highRiskAreas"></span> / <span id="todayTotal"></span></div>
+                <div class="metric-foot">全站状态汇总</div>
+            </article>
+        </section>
+
+        <section class="content-grid">
+            <article class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2 class="panel-title">站内区域状态图</h2>
+                        <div class="panel-subtitle">颜色反映各区域风险等级与密度状态</div>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="station-map" id="stationMap"></div>
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2 class="panel-title">客流趋势与短时预测</h2>
+                        <div class="panel-subtitle">历史监测实线 + 预测虚线</div>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="legend">
+                        <span class="history">历史/实时客流</span>
+                        <span class="predict">未来30分钟预测</span>
+                    </div>
+                    <div class="chart-box">
+                        <svg class="chart-svg" id="trendChart" viewBox="0 0 420 280" preserveAspectRatio="none"></svg>
+                    </div>
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2 class="panel-title">实时预警列表</h2>
+                        <div class="panel-subtitle">异常识别结果与联动建议</div>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="alerts" id="alertsList"></div>
+                </div>
+            </article>
+        </section>
+
+        <section class="footer-grid">
+            <article class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2 class="panel-title">平台状态</h2>
+                        <div class="panel-subtitle">Django + Redis + WebSocket 演示链路</div>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <div class="status-box">
+                        <div class="status-main">
+                            <div><strong>系统提示：</strong><span id="statusMessage"></span></div>
+                            <div><strong>当前风险等级：</strong><span id="riskLevelText"></span></div>
+                        </div>
+                        <div class="controls">
+                            <button id="sendMock">发送一次模拟客流更新</button>
+                            <div class="ws-status" id="wsStatus">WebSocket connecting...</div>
+                        </div>
+                    </div>
+                </div>
+            </article>
+
+            <article class="panel">
+                <div class="panel-head">
+                    <div>
+                        <h2 class="panel-title">区域状态速览</h2>
+                        <div class="panel-subtitle">便于老师快速查看各分区人数变化</div>
+                    </div>
+                </div>
+                <div class="panel-body">
+                    <table class="mini-table">
+                        <thead>
+                            <tr>
+                                <th>区域</th>
+                                <th>人数</th>
+                                <th>等级</th>
+                            </tr>
+                        </thead>
+                        <tbody id="miniTableBody"></tbody>
+                    </table>
+                </div>
+            </article>
+        </section>
+    </div>
+
+    <script>
+        const initialData = JSON.parse('{{ initial_data|escapejs }}');
+
+        const stationNameEl = document.getElementById("stationName");
+        const lineNameEl = document.getElementById("lineName");
+        const updatedAtEl = document.getElementById("updatedAt");
+        const focusAreaEl = document.getElementById("focusArea");
+        const currentCountEl = document.getElementById("currentCount");
+        const predictedCountEl = document.getElementById("predictedCount");
+        const highRiskAreasEl = document.getElementById("highRiskAreas");
+        const todayTotalEl = document.getElementById("todayTotal");
+        const stationMapEl = document.getElementById("stationMap");
+        const alertsListEl = document.getElementById("alertsList");
+        const statusMessageEl = document.getElementById("statusMessage");
+        const riskLevelTextEl = document.getElementById("riskLevelText");
+        const wsStatusEl = document.getElementById("wsStatus");
+        const miniTableBodyEl = document.getElementById("miniTableBody");
+        const trendChartEl = document.getElementById("trendChart");
+
+        function riskClass(level) {
+            if (level.includes("红")) return "red";
+            if (level.includes("橙")) return "orange";
+            if (level.includes("黄")) return "yellow";
+            return "green";
+        }
+
+        function buildStationMap(areaStatuses) {
+            stationMapEl.innerHTML = areaStatuses.map((item) => `
+                <div class="zone ${riskClass(item.risk_level)}">
+                    <div class="zone-name">${item.name}</div>
+                    <div class="zone-count">${item.count}</div>
+                    <div class="zone-risk">${item.risk_level}</div>
+                </div>
+            `).join("");
+        }
+
+        function buildAlerts(alerts) {
+            alertsListEl.innerHTML = alerts.map((item) => `
+                <div class="alert-item">
+                    <div class="alert-head">
+                        <div class="alert-time">${item.time}</div>
+                        <span class="badge ${riskClass(item.level)}">${item.level}</span>
+                    </div>
+                    <div class="alert-title">${item.area} - ${item.type}</div>
+                    <div class="alert-desc">${item.suggestion}</div>
+                </div>
+            `).join("");
+        }
+
+        function buildMiniTable(areaStatuses) {
+            miniTableBodyEl.innerHTML = areaStatuses.map((item) => `
+                <tr>
+                    <td>${item.name}</td>
+                    <td>${item.count}</td>
+                    <td><span class="badge ${riskClass(item.risk_level)}">${item.risk_level}</span></td>
+                </tr>
+            `).join("");
+        }
+
+        function buildTrendChart(historySeries, predictedSeries) {
+            const allPoints = [...historySeries, ...predictedSeries];
+            const values = allPoints.map((item) => item.value);
+            const maxValue = Math.max(...values) + 15;
+            const minValue = Math.max(0, Math.min(...values) - 15);
+
+            const width = 420;
+            const height = 280;
+            const padding = { top: 20, right: 10, bottom: 34, left: 38 };
+            const innerWidth = width - padding.left - padding.right;
+            const innerHeight = height - padding.top - padding.bottom;
+
+            const xFor = (index, total) => padding.left + (innerWidth * index / (total - 1));
+            const yFor = (value) => {
+                if (maxValue === minValue) return padding.top + innerHeight / 2;
+                return padding.top + (maxValue - value) * innerHeight / (maxValue - minValue);
+            };
+
+            const historyPath = historySeries.map((point, index) => {
+                const x = xFor(index, historySeries.length);
+                const y = yFor(point.value);
+                return `${index === 0 ? "M" : "L"} ${x} ${y}`;
+            }).join(" ");
+
+            const predictStartX = xFor(historySeries.length - 1, allPoints.length);
+            const predictStartY = yFor(historySeries[historySeries.length - 1].value);
+            const predictPathTail = predictedSeries.map((point, index) => {
+                const x = xFor(historySeries.length + index, allPoints.length);
+                const y = yFor(point.value);
+                return `L ${x} ${y}`;
+            }).join(" ");
+            const predictPath = `M ${predictStartX} ${predictStartY} ${predictPathTail}`;
+
+            const gridLines = [0, 1, 2, 3].map((row) => {
+                const y = padding.top + innerHeight * row / 3;
+                return `<line x1="${padding.left}" y1="${y}" x2="${width - padding.right}" y2="${y}" stroke="rgba(255,255,255,0.08)" />`;
+            }).join("");
+
+            const labels = allPoints.map((point, index) => {
+                const x = xFor(index, allPoints.length);
+                return `<text class="axis-label" x="${x}" y="${height - 10}" text-anchor="middle">${point.time}</text>`;
+            }).join("");
+
+            const yLabels = [maxValue, Math.round((maxValue + minValue) / 2), minValue].map((value, index) => {
+                const y = padding.top + innerHeight * index / 2;
+                return `<text class="axis-label" x="8" y="${y + 4}">${value}</text>`;
+            }).join("");
+
+            const historyDots = historySeries.map((point, index) => {
+                const x = xFor(index, historySeries.length);
+                const y = yFor(point.value);
+                return `<circle class="chart-dot" cx="${x}" cy="${y}" r="4.5" fill="#5fd8ff"></circle>`;
+            }).join("");
+
+            const predictDots = predictedSeries.map((point, index) => {
+                const x = xFor(historySeries.length + index, allPoints.length);
+                const y = yFor(point.value);
+                return `<circle class="chart-dot" cx="${x}" cy="${y}" r="4.5" fill="#7ef2cb"></circle>`;
+            }).join("");
+
+            trendChartEl.innerHTML = `
+                ${gridLines}
+                ${yLabels}
+                ${labels}
+                <path class="line-history" d="${historyPath}"></path>
+                <path class="line-predict" d="${predictPath}"></path>
+                ${historyDots}
+                ${predictDots}
+            `;
+        }
+
+        function render(data) {
+            stationNameEl.textContent = data.station;
+            lineNameEl.textContent = data.line;
+            updatedAtEl.textContent = data.updated_at;
+            focusAreaEl.textContent = data.area;
+            currentCountEl.textContent = data.current_count;
+            predictedCountEl.textContent = data.predicted_30m;
+            highRiskAreasEl.textContent = data.high_risk_areas;
+            todayTotalEl.textContent = data.today_total;
+            statusMessageEl.textContent = data.status_message;
+            riskLevelTextEl.textContent = data.risk_level;
+
+            buildStationMap(data.area_statuses);
+            buildAlerts(data.alerts);
+            buildMiniTable(data.area_statuses);
+            buildTrendChart(data.history_series, data.predicted_series);
+        }
+
+        render(initialData);
+
+        const socket = new WebSocket(`ws://${window.location.host}/ws/flow/`);
+
+        socket.onopen = () => {
+            wsStatusEl.textContent = "WebSocket connected";
+        };
+
+        socket.onclose = () => {
+            wsStatusEl.textContent = "WebSocket disconnected";
+        };
+
+        socket.onmessage = (event) => {
+            const payload = JSON.parse(event.data);
+            if (payload.type === "flow_update") {
+                render(payload);
+            }
+        };
+
+        document.getElementById("sendMock").addEventListener("click", async () => {
+            const response = await fetch("/api/mock-update/", { method: "POST" });
+            const result = await response.json();
+            console.log(result);
+        });
+    </script>
+</body>
+</html>
